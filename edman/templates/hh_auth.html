@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<table>
+    <thead>
+        <tr>
+            <th>HH user id</th>
+            <th>Email</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for acc in accounts %}
+        <tr>
+            <td>{{ acc.user_id }}</td>
+            <td>{{ acc.user_email }}</td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="3">У вас нет подключённых hh-аккаунтов.</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<form method="post" action="{% url 'auth_start' %}">
+    {% csrf_token %}
+    <button type="submit">Подключить hh</button>
+</form>
+{% endblock content %}
