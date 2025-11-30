@@ -111,6 +111,7 @@ def event_processor(data):
                             payload = {
                                 "number": cleaned,
                                 "text": sender.text,
+                                "linkPreview": True,
                             }
 
                             send_message.delay(sender.uri, payload, headers)
