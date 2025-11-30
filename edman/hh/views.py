@@ -17,10 +17,37 @@ User = get_user_model()
 
 r = redis.Redis(host='localhost', port=6379, db=0)
 
+TOKEN_URL = "https://hh.ru/oauth/token"
+
 @shared_task()
 def send_message(url, payload, headers):
     resp = requests.post(url, json=payload, headers=headers, timeout=10)
     return resp.text
+
+@shared_task()
+def refresh_token(tokens, employer_id):
+    headers = {"Authorization": f"Bearer {tokens.get("access_token")}"}
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens.get("refresh_token")
+    }
+    response = requests.post(TOKEN_URL, data=data, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to refresh token: {response.status_code} {response.text}")
+    tokens = response.json()
+    access_token = tokens.get("access_token")
+    refresh_token = tokens.get("refresh_token")
+    expires_in = tokens.get("expires_in")
+    Employer.objects.filter(pk=employer_id).update(
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+
+    # планируем следующий запуск: время жизни + 10 секунд
+    refresh_token.apply_async(
+        args=[tokens, employer_id],
+        countdown=expires_in + 10,
+    )
 
 
 @shared_task()
@@ -77,12 +104,14 @@ def event_processor(data):
 
     return data
 
-
 @csrf_exempt
 def event_handler(request):
-    data = json.loads(request.body)
-    event_processor.delay(data)
-    return HttpResponse("Ok")
+    if request.method == "POST":
+        data = json.loads(request.body)
+        event_processor.delay(data)
+        return HttpResponse("Ok")
+    else:
+        return redirect("auth_page")
 
 @login_required
 def auth_page(request):
@@ -124,7 +153,6 @@ def auth_finish(request):
     app_obj = App.objects.get(site=current_site)
 
     # Получение access_token
-    token_url = "https://hh.ru/oauth/token"
     data = {
         "grant_type": "authorization_code",
         "code": code,
@@ -132,12 +160,13 @@ def auth_finish(request):
         "client_secret": app_obj.client_secret,
         "redirect_uri": app_obj.redirect_uri,
     }
-    response = requests.post(token_url, data=data)
+    response = requests.post(TOKEN_URL, data=data)
     if response.status_code != 200:
         return HttpResponseBadRequest(f"Failed to get token {response.text}")
     tokens = response.json()
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
+    expires_in = tokens.get("expires_in")
 
     # Информация о текущем пользователе
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -158,6 +187,10 @@ def auth_finish(request):
             'refresh_token': refresh_token,
             'user_email': user_email,
         }
+    )
+    refresh_token.apply_async(
+        args=[tokens, hh_user.id],
+        countdown=expires_in + 10,
     )
     if not hh_user.subscription:
         subscribe_data = {
