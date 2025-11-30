@@ -24,28 +24,41 @@ def send_message(url, payload, headers):
     resp = requests.post(url, json=payload, headers=headers, timeout=10)
     return resp.text
 
-@shared_task()
-def refresh_token(tokens, employer_id):
-    headers = {"Authorization": f"Bearer {tokens.get("access_token")}"}
+
+@shared_task
+def refresh_hh_token(employer_id: int):
+    employer = Employer.objects.filter(pk=employer_id).first()
+    if not employer:
+        return
+
+    access_token = employer.access_token
+    refresh_token = employer.refresh_token
+
+    headers = {"Authorization": f"Bearer {access_token}"}
     data = {
         "grant_type": "refresh_token",
-        "refresh_token": tokens.get("refresh_token")
+        "refresh_token": refresh_token,
     }
+
     response = requests.post(TOKEN_URL, data=data, headers=headers)
     if response.status_code != 200:
-        raise Exception(f"Failed to refresh token: {response.status_code} {response.text}")
+        raise Exception(
+            f"Failed to refresh token: {response.status_code} {response.text}"
+        )
+
     tokens = response.json()
-    access_token = tokens.get("access_token")
-    refresh_token = tokens.get("refresh_token")
-    expires_in = tokens.get("expires_in")
+    new_access_token = tokens.get("access_token")
+    new_refresh_token = tokens.get("refresh_token")
+    expires_in = tokens.get("expires_in") or 0
+
     Employer.objects.filter(pk=employer_id).update(
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
     )
 
     # планируем следующий запуск: время жизни + 10 секунд
-    refresh_token.apply_async(
-        args=[tokens, employer_id],
+    refresh_hh_token.apply_async(
+        args=[employer_id],
         countdown=expires_in + 10,
     )
 
@@ -188,8 +201,8 @@ def auth_finish(request):
             'user_email': user_email,
         }
     )
-    refresh_token.apply_async(
-        args=[tokens, hh_user.id],
+    refresh_hh_token.apply_async(
+        args=[hh_user.id],
         countdown=expires_in + 10,
     )
     if not hh_user.subscription:
