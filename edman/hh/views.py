@@ -93,6 +93,7 @@ def event_processor(data):
 
             # Сохраняем контакты
             for item in contact:
+                kind = item.get("kind")
                 type_obj = item.get("type") or {}
                 contact_type = type_obj.get("id")
                 value = item.get("contact_value")
@@ -106,7 +107,7 @@ def event_processor(data):
                 senders = employer.senders.all()
                 if senders:
                     for sender in senders:
-                        if sender.type == "waweb" and contact_type == "phone":
+                        if sender.type == "waweb" and kind == "phone":
                             cleaned = re.sub(r'\D', '', value)
                             headers = {"apikey": sender.key}
                             payload = {
