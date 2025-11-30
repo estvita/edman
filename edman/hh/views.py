@@ -93,7 +93,8 @@ def event_processor(data):
 
             # Сохраняем контакты
             for item in contact:
-                contact_type = item.get("kind")
+                type_obj = item.get("type") or {}
+                contact_type = type_obj.get("id")
                 value = item.get("contact_value")
                 if contact_type and value:
                     Contact.objects.create(
