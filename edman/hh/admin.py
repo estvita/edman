@@ -14,12 +14,12 @@ class EmployerAdmin(admin.ModelAdmin):
 @admin.register(Resume)
 class ResumeAdmin(admin.ModelAdmin):
     list_display = ("id", "date", "last_name", "title")
-    search_fields = ("id", "last_name", "owner__email" "title")
+    search_fields = ("id", "last_name", "owner__email", "title")
     list_per_page = 50
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
     list_display = ("id", "type", "value", "resume")
-    search_fields = ("id", "value", "resume")
+    search_fields = ("id", "value", "resume__last_name", "resume__first_name", "resume__title")
     list_filter = ("type",)
     list_per_page = 50

@@ -118,6 +118,54 @@ def event_processor(data):
 
                             send_message.delay(sender.uri, payload, headers)
 
+            bitrixes = employer.bitrixes.all()
+            if bitrixes:
+                for bitrix in bitrixes:
+                    headers = {
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "fields": {
+                            "TITLE": f"Резюме {last_name} {first_name} - {title}",
+                            "NAME": first_name,
+                            "LAST_NAME": last_name,
+                            "SOURCE_ID": bitrix.source_id,
+                            "ASSIGNED_BY_ID": bitrix.assign_by_id,
+                            "SOURCE_DESCRIPTION": bitrix.crm_category_id,
+                        },
+                        "params": {
+                            "REGISTER_SONET_EVENT": "Y"
+                        }
+                    }
+                    # Добавление контактов в payload
+                    emails = []
+                    phones = []
+                    ims = []
+
+                    for item in contact:
+                        kind = item.get("kind")
+                        type_obj = item.get("type") or {}
+                        contact_type = type_obj.get("id")
+                        value = item.get("contact_value")
+                        if contact_type and value:
+                            if contact_type == "email":
+                                emails.append({"VALUE": value, "VALUE_TYPE": "WORK"})
+                            elif contact_type == "cell":
+                                phones.append({"VALUE": value, "VALUE_TYPE": "WORK"})
+                            elif contact_type == "telegram":
+                                ims.append({"VALUE": value, "VALUE_TYPE": "TELEGRAM"})
+                            elif contact_type == "whatsapp":
+                                ims.append({"VALUE": value, "VALUE_TYPE": "WHATSAPP"})
+
+                    if emails:
+                        payload["fields"]["EMAIL"] = emails
+                    if phones:
+                        payload["fields"]["PHONE"] = phones
+                    if ims:
+                        payload["fields"]["IM"] = ims
+
+                    send_message.delay(bitrix.uri + "crm.lead.add", payload, headers)
+
     return data
 
 @csrf_exempt
