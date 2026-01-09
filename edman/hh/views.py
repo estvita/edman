@@ -21,8 +21,14 @@ TOKEN_URL = "https://hh.ru/oauth/token"
 
 @shared_task()
 def send_message(url, payload, headers):
-    resp = requests.post(url, json=payload, headers=headers, timeout=10)
-    return resp.text
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.text
+    except requests.exceptions.HTTPError as err:
+        return f"HTTP error occurred: {err} Response: {err.response.text}"
+    except Exception as err:
+        return f"Other error occurred: {err}"
 
 
 @shared_task
@@ -81,6 +87,11 @@ def event_processor(data):
             first_name = resume_data.get("first_name")
             title = resume_data.get("title")
             contact = resume_data.get("contact", [])
+            middle_name = resume_data.get("middle_name")
+            birth_date_value = resume_data.get("birth_date")
+            area = resume_data.get("area")
+            city = area.get("name") if area else None
+            skill_set = resume_data.get("skill_set", [])
 
             # Сохраняем резюме
             resume = Resume.objects.create(
@@ -129,9 +140,13 @@ def event_processor(data):
                             "TITLE": f"Резюме {last_name} {first_name} - {title}",
                             "NAME": first_name,
                             "LAST_NAME": last_name,
+                            "SECOND_NAME": middle_name,
+                            "BIRTHDATE": birth_date_value,
+                            "ADDRESS_CITY": city,
+                            "COMMENTS": f"Навыки: {', '.join(skill_set)}",
                             "SOURCE_ID": bitrix.source_id,
                             "ASSIGNED_BY_ID": bitrix.assign_by_id,
-                            "SOURCE_DESCRIPTION": bitrix.crm_category_id,
+                            "SOURCE_DESCRIPTION": employer.user_id,
                         },
                         "params": {
                             "REGISTER_SONET_EVENT": "Y"
