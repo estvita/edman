@@ -113,6 +113,8 @@ class AuthSession:
                     '--window-position=0,0',
                     '--ignore-certificate-errors',
                     '--ignore-ssl-errors',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
                 ]
             )
             
@@ -243,14 +245,47 @@ class AuthSession:
                 'input[autocomplete="username"]'
             ]
 
-            # Auto-detect toggles between Phone/Email
+            # Auto-detect toggles between Phone/Email and handle "More" button for alternative auth
             try:
+                is_phone = self.login.replace('+','').replace('-','').strip().isdigit()
+
+                # Special case: If we are not a phone login, but the page forces Phone input (common in Yandex SplitAddUser)
+                if not is_phone:
+                    # Check if 'More' button is visible which hides 'Log in with username'
+                    more_btn = page.locator('button[data-testid="split-add-user-more-button"]')
+                    if more_btn.count() > 0 and more_btn.first.is_visible():
+                         self._log("Found 'More' button. Checking if we need to switch to username/email flow...")
+                         # If we only see a phone input, or if there is no explicit email toggle
+                         phone_input_visible = page.locator('input[type="tel"]').count() > 0 and page.locator('input[type="tel"]').first.is_visible()
+                         email_input_visible = page.locator('input[name="login"]').count() > 0 and page.locator('input[name="login"]').first.is_visible()
+                         
+                         if phone_input_visible and not email_input_visible:
+                             self._log("Only phone input visible, but login is not a phone. Clicking 'More'...")
+                             more_btn.first.click()
+                             time.sleep(1)
+                             
+                             # Look for "Log in with username" option
+                             # Usually it has text "Log in with username" or similar, or data-testid="auth-via-login"
+                             # Try multiple strategies to find the menu item
+                             menu_item = page.locator('button[data-testid="auth-via-login"]').or_(
+                                         page.locator('li[data-testid="auth-via-login"]')).or_(
+                                         page.get_by_text("Log in with username", exact=False)).or_(
+                                         page.get_by_text("Войти по логину", exact=False)).or_(
+                                         page.get_by_text("Log in with email", exact=False))
+                             
+                             if menu_item.count() > 0 and menu_item.first.is_visible():
+                                 self._log("Found 'Log in with username' menu item. Clicking...")
+                                 menu_item.first.click()
+                                 time.sleep(1)
+                             else:
+                                 self._log("Could not find 'Log in with username' item in menu.")
+
+
                 # Look for radio/toggle with value 'EMAIL' or 'PHONE'
                 # Also try specific test ids
                 email_toggle = page.locator('input[type="radio"][value="EMAIL"]').or_(page.locator('input[data-testid="add-user-email-option"]'))
                 phone_toggle = page.locator('input[type="radio"][value="PHONE"]').or_(page.locator('input[data-testid="add-user-phone-option"]'))
                 
-                is_phone = self.login.replace('+','').replace('-','').strip().isdigit()
                 
                 if is_phone:
                     if phone_toggle.count() > 0:
@@ -518,6 +553,9 @@ class AuthSession:
             self._log(f"Error during auth process: {e}")
             import traceback
             logger.error(traceback.format_exc())
+            if getattr(settings, 'PARTNER_AUTH_SHOW_BROWSER', False):
+                self._log("DEBUG: Waiting 60s before closing browser...")
+                time.sleep(60)
             self._set_status(self.STATUS_FAILED, f"Error: {str(e)}")
         finally:
             if browser:
