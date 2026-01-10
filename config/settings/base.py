@@ -21,7 +21,9 @@ if READ_DOT_ENV_FILE:
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
 # Control partner auth debug dumps
-PARTNER_AUTH_DEBUG_DUMPS = env.bool("PARTNER_AUTH_DEBUG_DUMPS", default=True)
+PARTNER_AUTH_DEBUG_DUMPS = env.bool("PARTNER_AUTH_DEBUG_DUMPS", default=False)
+# Control partner auth browser visibility
+PARTNER_AUTH_SHOW_BROWSER = env.bool("PARTNER_AUTH_SHOW_BROWSER", default=False)
 
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name

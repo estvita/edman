@@ -97,8 +97,8 @@ class AuthSession:
         playwright = None
         browser = None
         try:
-            debug_mode = getattr(settings, 'PARTNER_AUTH_DEBUG_DUMPS', False)
-            headless_mode = not debug_mode
+            show_browser = getattr(settings, 'PARTNER_AUTH_SHOW_BROWSER', False)
+            headless_mode = not show_browser
             self._log(f"Launching browser (Headless: {headless_mode})...")
             playwright = sync_playwright().start()
             
