@@ -20,6 +20,9 @@ if READ_DOT_ENV_FILE:
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
+# Control partner auth debug dumps
+PARTNER_AUTH_DEBUG_DUMPS = env.bool("PARTNER_AUTH_DEBUG_DUMPS", default=True)
+
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
@@ -96,6 +99,7 @@ LOCAL_APPS = [
     # Your stuff: custom apps go here
     "edman.hh",
     "edman.sender",
+    "edman.partner",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

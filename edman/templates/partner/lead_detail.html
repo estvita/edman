@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+         <h2>{{ lead.first_name }} {{ lead.last_name }}</h2>
+         <a href="{% url 'partner:lead_list' %}" class="btn btn-outline-secondary">{% trans "Back to List" %}</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Details for {{ lead.external_id }}</h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-borderless">
+                        <tr><th>Phone:</th><td>{{ lead.phone|default:"-" }}</td></tr>
+                        <tr><th>City:</th><td>{{ lead.target_city }}</td></tr>
+                        <tr><th>Status:</th><td>{{ lead.status }}</td></tr>
+                        <tr><th>Account:</th><td>{{ lead.account.name }}</td></tr>
+                        <tr><th>Created At:</th><td>{{ lead.lead_created_at }}</td></tr>
+                        <tr><th>Updated At:</th><td>{{ lead.updated_ts }}</td></tr>
+                        <tr><th>Rewarded At:</th><td>{{ lead.rewarded_at }}</td></tr>
+                        <tr><th>Complaint:</th><td>{{ lead.complaint_status }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-borderless">
+                         <tr><th>Eats Order #:</th><td>{{ lead.eats_order_number }}</td></tr>
+                         <tr><th>Closed Reason:</th><td>{{ lead.closed_reason }}</td></tr>
+                         <tr><th>Creator:</th><td>{{ lead.creator_username }}</td></tr>
+                         <tr><th>Reward:</th><td>{{ lead.reward }}</td></tr>
+                         <tr><th colspan="2">UTM Data</th></tr>
+                         <tr><td>Source:</td><td>{{ lead.utm_source }}</td></tr>
+                         <tr><td>Medium:</td><td>{{ lead.utm_medium }}</td></tr>
+                         <tr><td>Campaign:</td><td>{{ lead.utm_campaign }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

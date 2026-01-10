@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container mt-4">
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link active" aria-current="page" href="#">{% trans "Partner Accounts" %}</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{% url 'partner:lead_list' %}">{% trans "Leads" %}</a>
+    </li>
+  </ul>
+
+  <h2>{% trans "Partner Accounts" %}</h2>
+  
+  <div class="mb-4">
+      <button class="btn btn-primary" onclick="showAddModal()">{% trans "Add Account" %}</button>
+      <a href="{% url 'partner:lead_upload' %}" class="btn btn-secondary ms-2">{% trans "Upload Leads" %}</a>
+  </div>
+
+  <table class="table">
+      <thead>
+          <tr>
+            <th>{% trans "Name" %}</th>
+            <th>{% trans "App" %}</th>
+            <th>{% trans "Login" %}</th>
+            <th>{% trans "Status" %}</th>
+          </tr>
+      </thead>
+      <tbody>
+          {% for account in accounts %}
+          <tr>
+              <td>{{ account.name }}</td>
+              <td>{{ account.app.name }}</td>
+              <td>{{ account.login }}</td>
+              <td>
+                  {% if account.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}
+              </td>
+          </tr>
+          {% endfor %}
+      </tbody>
+  </table>
+</div>
+
+<!-- Add Account Modal -->
+<div id="addAccountModal" class="modal" tabindex="-1" style="display:none; background: rgba(0,0,0,0.5);">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{% trans "Add Partner Account" %}</h5>
+        <button type="button" class="btn-close" onclick="closeAddModal()">X</button>
+      </div>
+      <div class="modal-body">
+        
+        <div id="authFormStep">
+            <div class="mb-3">
+                <label>App</label>
+                <select id="appSelect" class="form-control">
+                    {% for app in apps %}
+                    <option value="{{ app.id }}">{{ app.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label>Login</label>
+                <input type="text" id="loginInput" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label>Password</label>
+                <input type="password" id="passwordInput" class="form-control">
+            </div>
+            <button class="btn btn-primary" onclick="startAuth()">Login</button>
+        </div>
+
+        <div id="authStatusStep" style="display:none;">
+            <div class="text-center">
+                <div class="spinner-border mb-3" role="status"></div>
+                <p id="statusMessage">Connecting...</p>
+                
+                <div id="otpSection" style="display:none;">
+                    <label>Enter Code sent to your phone:</label>
+                    <input type="text" id="otpInput" class="form-control mb-2">
+                    <button class="btn btn-success" onclick="submitOtp()">Submit Code</button>
+                </div>
+            </div>
+            
+            <hr>
+            <h6>Debug Console</h6>
+            <pre id="debugConsole" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; height: 200px; overflow-y: scroll; font-size: 0.8rem; text-align: left;"></pre>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentSessionId = null;
+let pollInterval = null;
+
+function showAddModal() {
+    document.getElementById('addAccountModal').style.display = 'block';
+    document.getElementById('authFormStep').style.display = 'block';
+    document.getElementById('authStatusStep').style.display = 'none';
+    document.getElementById('debugConsole').innerText = ''; // Clear logs
+}
+
+function closeAddModal() {
+    document.getElementById('addAccountModal').style.display = 'none';
+    if(pollInterval) clearInterval(pollInterval);
+}
+
+const csrftoken = "{{ csrf_token }}";
+
+async function startAuth() {
+    const appId = document.getElementById('appSelect').value;
+    const login = document.getElementById('loginInput').value;
+    const pass = document.getElementById('passwordInput').value;
+    
+    document.getElementById('authFormStep').style.display = 'none';
+    document.getElementById('authStatusStep').style.display = 'block';
+    document.getElementById('statusMessage').innerText = "Initiating...";
+    
+    const res = await fetch("{% url 'partner:auth_start' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({app_id: appId, login: login, password: pass})
+    });
+    
+    const data = await res.json();
+    if(res.ok) {
+        currentSessionId = data.session_id;
+        pollInterval = setInterval(checkStatus, 2000);
+    } else {
+        alert("Error: " + data.error);
+        showAddModal(); 
+    }
+}
+
+async function checkStatus() {
+    if(!currentSessionId) return;
+    
+    const res = await fetch(`/partner/auth/status/${currentSessionId}/`);
+    const data = await res.json();
+    
+    document.getElementById('statusMessage').innerText = data.message || data.status;
+    
+    // Update logs
+    if (data.logs) {
+        const consoleEl = document.getElementById('debugConsole');
+        consoleEl.innerText = data.logs.join("\n");
+        consoleEl.scrollTop = consoleEl.scrollHeight; // Auto-scroll
+    }
+    
+    if(data.status === 'OTP_REQUIRED') {
+        document.getElementById('otpSection').style.display = 'block';
+    } else if (data.status === 'SUCCESS') {
+        clearInterval(pollInterval);
+        saveAccount();
+    } else if (data.status === 'FAILED') {
+        clearInterval(pollInterval);
+        // Don't close modal immediately so user can see logs
+        // alert("Auth failed: " + data.message); 
+    }
+}
+
+async function submitOtp() {
+    const code = document.getElementById('otpInput').value;
+    await fetch("{% url 'partner:auth_otp' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({session_id: currentSessionId, code: code})
+    });
+    document.getElementById('otpSection').style.display = 'none';
+    document.getElementById('statusMessage').innerText = "Code submitted, verifying...";
+}
+
+async function saveAccount() {
+    document.getElementById('statusMessage').innerText = "Saving account...";
+    const appId = document.getElementById('appSelect').value;
+    const login = document.getElementById('loginInput').value;
+    
+    const res = await fetch("{% url 'partner:auth_save' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({
+            session_id: currentSessionId,
+            app_id: appId,
+            login: login
+        })
+    });
+    
+    if(res.ok) {
+        window.location.reload();
+    } else {
+        const errData = await res.json();
+        alert("Error saving account: " + (errData.error || "Unknown error"));
+        console.error("Save error:", errData);
+    }
+}
+</script>
+{% endblock %}

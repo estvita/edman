@@ -78,6 +78,10 @@
               </li>
               <li class="nav-item">
                 <a class="nav-link"
+                   href="{% url 'partner:list' %}">{% translate "Partner Accounts" %}</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link"
                    href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a>
               </li>
               <li class="nav-item">
@@ -110,7 +114,6 @@
     {% block main %}
       {% block content %}
         {% if request.user.is_authenticated %}
-          <a href="{% url 'auth_page' %}">{% translate "Connect HH" %}
         {% endif %}
       {% endblock content %}
     {% endblock main %}

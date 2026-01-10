@@ -24,6 +24,7 @@ urlpatterns = [
     path("users/", include("edman.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
+    path("partner/", include("edman.partner.urls", namespace="partner")),
     # ...
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
@@ -78,3 +79,7 @@ if settings.DEBUG:
             path("__debug__/", include(debug_toolbar.urls)),
             *urlpatterns,
         ]
+
+admin.site.site_header = "separator.biz"
+admin.site.site_title = "Admin Portal"
+admin.site.index_title = "Edman Admin"
