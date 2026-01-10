@@ -241,6 +241,36 @@ class AuthSession:
                 'input[type="text"]',
                 'input[autocomplete="username"]'
             ]
+
+            # Auto-detect toggles between Phone/Email
+            try:
+                # Look for radio/toggle with value 'EMAIL' or 'PHONE'
+                # Also try specific test ids
+                email_toggle = page.locator('input[type="radio"][value="EMAIL"]').or_(page.locator('input[data-testid="add-user-email-option"]'))
+                phone_toggle = page.locator('input[type="radio"][value="PHONE"]').or_(page.locator('input[data-testid="add-user-phone-option"]'))
+                
+                is_phone = self.login.replace('+','').replace('-','').strip().isdigit()
+                
+                if is_phone:
+                    if phone_toggle.count() > 0:
+                        self._log("Found Phone toggle. Activating...")
+                        # Click the label or the input
+                        try:
+                            # Try clicking the parent label to be safe (often the input is hidden)
+                            phone_toggle.first.locator('xpath=..').click(force=True)
+                        except:
+                            phone_toggle.first.click(force=True)
+                        time.sleep(1)
+                else:
+                    if email_toggle.count() > 0:
+                        self._log("Found Email toggle. Activating...")
+                        try:
+                            email_toggle.first.locator('xpath=..').click(force=True)
+                        except:
+                            email_toggle.first.click(force=True)
+                        time.sleep(1)
+            except Exception as e:
+                self._log(f"Toggle detection error: {e}")
             
             for selector in selectors:
                 if page.locator(selector).is_visible():
