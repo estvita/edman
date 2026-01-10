@@ -235,10 +235,11 @@ class AuthSession:
 
             # Try to find the login input with multiple selectors
             selectors = [
-                'input[name="login"]', 
-                'input#passp-field-login', 
-                'input[type="email"]', 
+                'input[name="login"]',
+                'input#passp-field-login',
+                'input[type="email"]',
                 'input[type="text"]',
+                'input[type="tel"]',
                 'input[autocomplete="username"]'
             ]
 
