@@ -46,7 +46,7 @@ class StartAuthView(LoginRequiredMixin, View):
                 return JsonResponse({'error': 'App not found'}, status=404)
             
             # Start auth session
-            session = AuthSession(app.auth_url, login, password)
+            session = AuthSession(app.auth_url, login, password, leads_url=app.leads_url)
             session_id = session.start()
             
             return JsonResponse({'session_id': session_id, 'status': 'initiated'})

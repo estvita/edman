@@ -20,9 +20,10 @@ class AuthSession:
     OTP_KEY_PREFIX = "partner_auth_otp_"
     RESULT_KEY_PREFIX = "partner_auth_result_"
 
-    def __init__(self, auth_url, login, password):
+    def __init__(self, auth_url, login, password, leads_url=None):
         self.session_id = str(uuid.uuid4())
         self.auth_url = auth_url
+        self.leads_url = leads_url
         self.login = login
         self.password = password
         self._thread = None
@@ -337,7 +338,7 @@ class AuthSession:
                  raise Exception("Could not find login input field")
 
             self._log("Waiting for transition...")
-            time.sleep(3) # Wait for transition
+            time.sleep(5) # Wait for transition
             self._dump_page(page, "03_after_login_submit")
 
             # Check if password field appeared
@@ -415,10 +416,25 @@ class AuthSession:
                     return
                 
                 # Check if we landed on generic Yandex ID page (Logged in successfully but not redirected)
+                # We check for URL text OR for specific elements that only appear when logged in on the profile page
+                is_profile_page = False
                 if "id.yandex." in url and "auth" not in url:
-                     self._log(f"Landed on Yandex ID profile. Authenticated! Redirecting to {self.auth_url}...")
+                    is_profile_page = True
+                
+                # Enhanced check for profile page elements
+                if not is_profile_page:
+                    try:
+                        if page.locator('div[data-testid="profile-card"]').count() > 0 or \
+                           page.locator('div[data-testid="user-avatar"]').count() > 0 or \
+                           page.locator('div[data-testid="account-user-card"]').count() > 0:
+                            is_profile_page = True
+                    except:
+                        pass
+
+                if is_profile_page:
+                     self._log(f"Landed on Yandex ID profile. Authenticated! Redirecting to {self.leads_url}...")
                      try:
-                         page.goto(self.auth_url)
+                         page.goto(self.leads_url)
                          time.sleep(3)
                          continue
                      except Exception as e:
@@ -434,11 +450,11 @@ class AuthSession:
                         masked_email = hint_text.split(' на ')[-1].replace('.', '')
                         self._log(f"Code sent to: {masked_email}")
                         self._set_status(self.STATUS_OTP_REQUIRED, f"Code sent to {masked_email}")
-                        return # Pause execution and wait for OTP
+                        # Do not return, let the loop continue to detect the input field
                     except Exception as e:
                         self._log(f"Could not extract masked email: {e}")
                         self._set_status(self.STATUS_OTP_REQUIRED, "Email code required")
-                        return # Pause execution and wait for OTP
+                        # Do not return
 
                 # Check for phone confirmation challenge specifically
                 if "challenges/phone-confirmation" in url:
@@ -490,6 +506,7 @@ class AuthSession:
                 # Specific selectors for the code input field
                 code_selectors = [
                     'input[data-testid="code-field-segment"]', # Segmented input (modern yandex)
+                    'input[data-testid="text-field-input"]',   # Email code input
                     'input[name="code"]', 
                     'input[type="tel"]',
                     'input[id="passp-field-phoneCode"]',
