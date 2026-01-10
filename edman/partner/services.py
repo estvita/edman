@@ -424,6 +424,22 @@ class AuthSession:
                      except Exception as e:
                          self._log(f"Redirect failed: {e}")
                 
+                # Check for email code challenge
+                if "challenges/email-code" in url:
+                    self._log("Email code challenge detected.")
+                    try:
+                        # Extract the masked email to inform the user
+                        hint_element = page.locator('div.description-block >> span').first
+                        hint_text = hint_element.text_content()
+                        masked_email = hint_text.split(' на ')[-1].replace('.', '')
+                        self._log(f"Code sent to: {masked_email}")
+                        self._set_status(self.STATUS_OTP_REQUIRED, f"Code sent to {masked_email}")
+                        return # Pause execution and wait for OTP
+                    except Exception as e:
+                        self._log(f"Could not extract masked email: {e}")
+                        self._set_status(self.STATUS_OTP_REQUIRED, "Email code required")
+                        return # Pause execution and wait for OTP
+
                 # Check for phone confirmation challenge specifically
                 if "challenges/phone-confirmation" in url:
                      self._log("Phone confirmation challenge detected.")
